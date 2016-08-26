@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: kubernetes-meter
+  namespace: 6fusion-system
+spec:
+  replicas: 1
+  selector:
+    6fusion-app: kubernetes-meter
+  template:
+    metadata:
+      labels:
+        6fusion-app: kubernetes-meter
+    spec:
+      serviceAccount: kubernetes-meter
+      containers:
+      - image: docker.io/dvison/kubernetes-meter:0.3.8
+        name: kubernetes-meter
+        volumeMounts:
+        - mountPath: /var/run/secrets/uc6/
+          name: uc6-secret
+      volumes:
+      - secret:
+          secretName: uc6-secret
+        name: uc6-secret
