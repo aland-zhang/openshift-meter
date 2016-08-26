@@ -20,7 +20,7 @@ spec:
     spec:
       serviceAccount: kubernetes-meter
       containers:
-      - image: docker.io/dvison/kubernetes-meter:0.3.8
+      - image: docker.io/dvison/openshift-meter:0.2.1
         name: kubernetes-meter
         volumeMounts:
         - mountPath: /var/run/secrets/uc6/
