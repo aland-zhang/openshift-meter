@@ -10,4 +10,4 @@ RUN bundle install
 
 COPY . /usr/meter
 
-CMD ruby kubernetes-meter.rb
+CMD ruby openshift-meter.rb
