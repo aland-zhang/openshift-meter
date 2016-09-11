@@ -28,8 +28,10 @@ class InventoryCollector
     @k8s_protocol = datastore.kubernetes_insecure ? 'http' : 'https'
     @kubelet_protocol = datastore.kubelet_insecure ? 'http' : 'https'
     @kubelet_port = datastore.kubelet_port
-    @headers = {}
-    @headers = {Authorization: "Bearer #{@k8s_token}"} unless @k8s_token.nil?
+    @k8s_headers = {}
+    @k8s_headers = {Authorization: "Bearer #{@k8s_token}"} unless @k8s_token.nil?
+    @kubelet_headers = {}
+    @kubelet_headers = {Authorization: "Bearer #{@k8s_token}"} unless @k8s_token.nil? || datastore.kubelet_insecure
     @k8s_base_url = "#{@k8s_protocol}://#{@datastore.kubernetes_host}:#{@datastore.kubernetes_port}/api/v1"
     @openshift_base_url = "#{@k8s_protocol}://#{@datastore.kubernetes_host}:#{@datastore.kubernetes_port}/oapi/v1"
     @logger.debug("Inventory Collector initialized successfully.")
@@ -74,7 +76,7 @@ class InventoryCollector
   end
 
   def collect_projects
-    response = RestClient::Request.execute(:method => :get, :url => "#{@openshift_base_url}/projects", :headers => @headers, :verify_ssl => false)
+    response = RestClient::Request.execute(:method => :get, :url => "#{@openshift_base_url}/projects", :headers => @k8s_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
     response_hash["items"].each do |project|
       billing_group = @datastore.billing_groups["#{project["metadata"]["uid"]}"] || BillingGroup.new
@@ -97,7 +99,7 @@ class InventoryCollector
   end
 
   def collect_services(project)
-    response = RestClient::Request.execute(:url => "#{@k8s_base_url}/namespaces/#{project["metadata"]["name"]}/services", :method => :get, :headers => @headers, :verify_ssl => false)
+    response = RestClient::Request.execute(:url => "#{@k8s_base_url}/namespaces/#{project["metadata"]["name"]}/services", :method => :get, :headers => @k8s_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
     response_hash["items"].each do |service|
       collect_pods(project,service) unless service["spec"]["selector"].nil?
@@ -111,9 +113,9 @@ class InventoryCollector
       label_selector = ''
       service["spec"]["selector"].each {|k, v| label_selector << "#{k}=#{v},"} unless service["spec"]["selector"].nil?
       label_selector = label_selector.to_s.chop
-      response = RestClient::Request.execute(:url => "#{@k8s_base_url}/namespaces/#{project["metadata"]["name"]}/pods?labelSelector=#{label_selector}", :method => :get, :headers => @headers, :verify_ssl => false)
+      response = RestClient::Request.execute(:url => "#{@k8s_base_url}/namespaces/#{project["metadata"]["name"]}/pods?labelSelector=#{label_selector}", :method => :get, :headers => @k8s_headers, :verify_ssl => false)
     else
-      response = RestClient::Request.execute(:url => "#{@k8s_base_url}/namespaces/#{project["metadata"]["name"]}/pods", :method => :get, :headers => @headers, :verify_ssl => false)
+      response = RestClient::Request.execute(:url => "#{@k8s_base_url}/namespaces/#{project["metadata"]["name"]}/pods", :method => :get, :headers => @k8s_headers, :verify_ssl => false)
     end
     response_hash = JSON.parse(response.body)
     response_hash["items"].each do |pod|
@@ -164,7 +166,7 @@ class InventoryCollector
   end
 
   def collect_nodes
-    response = RestClient::Request.execute(:url => "#{@k8s_base_url}/nodes", :method => :get, :headers => @headers, :verify_ssl => false)
+    response = RestClient::Request.execute(:url => "#{@k8s_base_url}/nodes", :method => :get, :headers => @k8s_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
     response_hash["items"].each do |nodes|
       host_ip = nodes["status"]["addresses"][0]["address"]
@@ -177,11 +179,11 @@ class InventoryCollector
   end
 
   def collect_containers (node_ip_address)
-    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/spec", :method => :get)
+    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/spec", :method => :get, :headers => @kubelet_headers, :verify_ssl => false)
     node_attributes = JSON.parse(response.body)
     @datastore.infrastructure.hosts["#{node_ip_address}"] = node_attributes
     payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":1}'
-    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json)
+    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json, :headers => @kubelet_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
     response_hash.each do |id,container|
       if container["aliases"]

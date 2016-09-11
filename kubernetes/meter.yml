@@ -14,7 +14,7 @@ spec:
     spec:
       serviceAccount: openshift-meter
       containers:
-      - image: docker.io/dvison/openshift-meter:0.3.1
+      - image: docker.io/dvison/openshift-meter:0.3.2
         name: openshift-meter
         volumeMounts:
         - mountPath: /var/run/secrets/uc6/

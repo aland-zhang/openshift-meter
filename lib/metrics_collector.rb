@@ -24,8 +24,11 @@ class MetricsCollector
     @logger = logger
     @logger.debug("Initializing the Metrics Collector...")
     @datastore = datastore
+    @k8s_token = @datastore.kubernetes_token
     @kubelet_protocol = datastore.kubelet_insecure ? 'http' : 'https'
     @kubelet_port = datastore.kubelet_port
+    @kubelet_headers = {}
+    @kubelet_headers = {Authorization: "Bearer #{@k8s_token}"} unless @k8s_token.nil? || datastore.kubelet_insecure
     @logger.debug("Metrics Collector initialized successfully.")
   end
 
@@ -51,7 +54,7 @@ class MetricsCollector
     metrics = {}
     datastore.infrastructure.hosts.keys.each do |host_ip|
       payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":11}'
-      response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{host_ip}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json)
+      response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{host_ip}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json, :headers => @kubelet_headers, :verify_ssl => false)
       response_hash = JSON.parse(response.body)
       metrics.merge!(response_hash)
     end

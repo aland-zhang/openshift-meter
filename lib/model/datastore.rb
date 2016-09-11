@@ -9,8 +9,8 @@ class Datastore
     @machines = {}
 
     #Defaults
-    @kubelet_port = 10255
-    @kubelet_insecure = true
+    @kubelet_port = 10250
+    @kubelet_insecure = false
   end
 
   def reset_inventory
