@@ -21,8 +21,8 @@ begin
   datastore.uc6_port = File.read('/var/run/secrets/uc6/port') if File.exist?('/var/run/secrets/uc6/port')
   datastore.uc6_token = File.read('/var/run/secrets/uc6/token') if File.exist?('/var/run/secrets/uc6/token')
   datastore.uc6_insecure = File.read('/var/run/secrets/uc6/insecure') if File.exist?('/var/run/secrets/uc6/insecure')
-  datastore.cadvisor_insecure = File.read('/var/run/secrets/cadvisor/port') if File.exist?('/var/run/secrets/cadvisor/port')
-  datastore.cadvisor_insecure = File.read('/var/run/secrets/cadvisor/insecure') if File.exist?('/var/run/secrets/cadvisor/insecure')
+  datastore.kubelet_insecure = File.read('/var/run/secrets/kubelet/port') if File.exist?('/var/run/secrets/kubelet/port')
+  datastore.kubelet_insecure = File.read('/var/run/secrets/kubelet/insecure') if File.exist?('/var/run/secrets/kubelet/insecure')
   
   # Retrieve configuration from environment variables
   datastore.organization.remote_id = ENV["ORGANIZATIONID"] unless ENV["ORGANIZATIONID"].nil?
@@ -34,8 +34,8 @@ begin
   datastore.uc6_port = ENV["UC6_PORT_443_TCP_PORT"] unless ENV["UC6_PORT_443_TCP_PORT"].nil?
   datastore.uc6_token = ENV["UC6_TOKEN"] unless ENV["UC6_TOKEN"].nil?
   datastore.uc6_insecure = ENV["UC6_INSECURE"] unless ENV["UC6_INSECURE"].nil?
-  datastore.cadvisor_port = ENV["CADVISOR_PORT_80_TCP_PORT"] unless ENV["CADVISOR_PORT_80_TCP_PORT"].nil?
-  datastore.cadvisor_insecure = ENV["CADVISOR_INSECURE"] unless ENV["CADVISOR_INSECURE"].nil?
+  datastore.kubelet_port = ENV["KUBELET_PORT_443_TCP_PORT"] unless ENV["KUBELET_PORT_443_TCP_PORT"].nil?
+  datastore.kubelet_insecure = ENV["KUBELET_INSECURE"] unless ENV["KUBELET_INSECURE"].nil?
   
   # Retrieve configuration from command line arguments 
   datastore.organization.remote_id = ARGV[0] unless ARGV.empty?
@@ -47,8 +47,8 @@ begin
   datastore.uc6_port = ARGV[6] unless ARGV.empty?
   datastore.uc6_token = ARGV[7] unless ARGV.empty?
   datastore.uc6_insecure = ARGV[8] unless ARGV.empty?
-  datastore.cadvisor_port = ARGV[9] unless ARGV.empty?
-  datastore.cadvisor_insecure = ARGV[10] unless ARGV.empty?
+  datastore.kubelet_port = ARGV[9] unless ARGV.empty?
+  datastore.kubelet_insecure = ARGV[10] unless ARGV.empty?
   
   # Check configuration and throw error if invalid
   errors = []
@@ -80,8 +80,8 @@ begin
   logger.debug("  uc6_port: #{datastore.uc6_port}")
   logger.debug("  uc6_token: #{datastore.uc6_token}")
   logger.debug("  uc6_insecure: #{datastore.uc6_insecure}")
-  logger.debug("  cadvisor_port: #{datastore.cadvisor_port}")
-  logger.debug("  cadvisor_insecure: #{datastore.cadvisor_insecure}")
+  logger.debug("  kubelet_port: #{datastore.kubelet_port}")
+  logger.debug("  kubelet_insecure: #{datastore.kubelet_insecure}")
   logger.debug("-----end of configuration-----")
 
   # Start the Meter

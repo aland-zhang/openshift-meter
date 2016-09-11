@@ -14,7 +14,7 @@ require '../lib/model/nic_reading'
 class MetricsCollector
   private
   
-  attr_accessor :datastore, :logger, :cadvisor_protocol, :cadvisor_port
+  attr_accessor :datastore, :logger, :kubelet_protocol, :kubelet_port
   
   public
 
@@ -24,8 +24,8 @@ class MetricsCollector
     @logger = logger
     @logger.debug("Initializing the Metrics Collector...")
     @datastore = datastore
-    @cadvisor_protocol = datastore.cadvisor_insecure ? 'http' : 'https'
-    @cadvisor_port = datastore.cadvisor_port
+    @kubelet_protocol = datastore.kubelet_insecure ? 'http' : 'https'
+    @kubelet_port = datastore.kubelet_port
     @logger.debug("Metrics Collector initialized successfully.")
   end
 
@@ -50,7 +50,8 @@ class MetricsCollector
   def collect_metrics
     metrics = {}
     datastore.infrastructure.hosts.keys.each do |host_ip|
-      response = RestClient::Request.execute(:url => "#{@cadvisor_protocol}://#{host_ip}:#{@cadvisor_port}/api/v2.0/stats/?type=docker&recursive=true&count=11", :method => :get)
+      payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":11}'
+      response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{host_ip}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json)
       response_hash = JSON.parse(response.body)
       metrics.merge!(response_hash)
     end
@@ -60,7 +61,7 @@ class MetricsCollector
       readings = metrics["#{machine.platform_meter_id}"]
       
       if readings
-        readings.each do |reading|
+        readings["stats"].each do |reading|
           
           # Set the current reading for each machine
           current_reading = {}

@@ -14,7 +14,7 @@ require '../lib/model/nic_reading'
 class InventoryCollector
   private
   
-  attr_accessor :datastore, :logger, :k8s_protocol, :k8s_token, :cadvisor_port, :cadvisor_protocol
+  attr_accessor :datastore, :logger, :k8s_protocol, :k8s_token, :kubelet_port, :kubelet_protocol
 
   public
 
@@ -26,8 +26,8 @@ class InventoryCollector
     @datastore = datastore
     @k8s_token = @datastore.kubernetes_token
     @k8s_protocol = datastore.kubernetes_insecure ? 'http' : 'https'
-    @cadvisor_protocol = datastore.cadvisor_insecure ? 'http' : 'https'
-    @cadvisor_port = datastore.cadvisor_port
+    @kubelet_protocol = datastore.kubelet_insecure ? 'http' : 'https'
+    @kubelet_port = datastore.kubelet_port
     @headers = {}
     @headers = {Authorization: "Bearer #{@k8s_token}"} unless @k8s_token.nil?
     @k8s_base_url = "#{@k8s_protocol}://#{@datastore.kubernetes_host}:#{@datastore.kubernetes_port}/api/v1"
@@ -132,27 +132,29 @@ class InventoryCollector
         #Save the machine
         @datastore.machines.store("#{machine.platform_id}", machine)
       end
-      
-      pod["status"]["containerStatuses"].each do |container|
-        if container["ready"]
-          # Retrieve machine or create new machine
-          machine = @datastore.machines["#{container["containerID"].split("//").last}"]
-          
-          if machine
-            # Set machine basic attributes
-            machine.name = "#{container["name"]}-#{machine.platform_id[0...8]}"
-            machine.status = container["state"].keys.first
-            machine.billing_group = datastore.billing_groups["#{project["metadata"]["uid"]}"]
-            
-            # Set machine tags
-            if service
-              machine.tags = "type:container,pod:#{pod["metadata"]["name"]},service:#{service["metadata"]["name"]}"
-            else
-              machine.tags = "type:container,pod:#{pod["metadata"]["name"]}"
-            end
 
-            #Save the machine
-            @datastore.machines.store("#{container["containerID"].split("//").last}", machine)
+      if pod["status"]["containerStatuses"]
+        pod["status"]["containerStatuses"].each do |container|
+          if container["ready"]
+            # Retrieve machine or create new machine
+            machine = @datastore.machines["#{container["containerID"].split("//").last}"]
+
+            if machine
+              # Set machine basic attributes
+              machine.name = "#{container["name"]}-#{machine.platform_id[0...8]}"
+              machine.status = container["state"].keys.first
+              machine.billing_group = datastore.billing_groups["#{project["metadata"]["uid"]}"]
+
+              # Set machine tags
+              if service
+                machine.tags = "type:container,pod:#{pod["metadata"]["name"]},service:#{service["metadata"]["name"]}"
+              else
+                machine.tags = "type:container,pod:#{pod["metadata"]["name"]}"
+              end
+
+              #Save the machine
+              @datastore.machines.store("#{container["containerID"].split("//").last}", machine)
+            end
           end
         end
       end
@@ -175,48 +177,50 @@ class InventoryCollector
   end
 
   def collect_containers (node_ip_address)
-    response = RestClient::Request.execute(:url => "#{cadvisor_protocol}://#{node_ip_address}:#{cadvisor_port}/api/v2.0/attributes", :method => :get)
+    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/spec", :method => :get)
     node_attributes = JSON.parse(response.body)
     @datastore.infrastructure.hosts["#{node_ip_address}"] = node_attributes
-    response = RestClient::Request.execute(:url => "#{cadvisor_protocol}://#{node_ip_address}:#{cadvisor_port}/api/v2.0/spec/?type=docker&recursive=true", :method => :get)
+    payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":1}'
+    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json)
     response_hash = JSON.parse(response.body)
     response_hash.each do |id,container|
-      
-      # Parse aliases
-      container_name = container["aliases"][0]
-      container_id = container["aliases"][1]
-        
-      # Retrieve machine or create new machine
-      machine = @datastore.machines[container_id] || Machine.new
-      
-      # Set machine basic attributes
-      machine.platform_id = container_id
-      machine.platform_meter_id = id
-      machine.virtual_name = container_id
-      machine.container_name = container_name
-      machine.host = node_ip_address
-      
-      # Set CPU and Memory Allocations
-      machine.cpu_count = container["cpu"]["limit"]
-      machine.cpu_speed_mhz = node_attributes["cpu_frequency_khz"] / 1000
-      machine.maximum_memory_bytes = container["memory"]["limit"] < node_attributes["memory_capacity"] ? container["memory"]["limit"] : node_attributes["memory_capacity"]
-      
-      # Set Machine Disks
-      machine_disk = Disk.new
-      machine_disk.name = "disk-#{machine.platform_id[0...8]}"
-      machine_disk.maximum_size_bytes = 0
-      machine_disk.type = "disk"
-      machine.disks.store("#{machine_disk.name}", machine_disk)
+      if container["aliases"]
+        # Parse aliases
+        container_name = container["aliases"][0]
+        container_id = container["aliases"][1]
 
-      # Set Machine NICs
-      machine_nic = Nic.new
-      machine_nic.name = "nic-#{machine.platform_id[0...8]}"
-      machine_nic.kind = 0
-      machine.nics.store("#{machine_nic.name}", machine_nic)
+        # Retrieve machine or create new machine
+        machine = @datastore.machines[container_id] || Machine.new
 
-      # Add Machine to List
-      @datastore.machines.store("#{machine.platform_id}", machine)
-      @containers += 1
+        # Set machine basic attributes
+        machine.platform_id = container_id
+        machine.platform_meter_id = id
+        machine.virtual_name = container_id
+        machine.container_name = container_name
+        machine.host = node_ip_address
+
+        # Set CPU and Memory Allocations
+        machine.cpu_count = container["spec"]["cpu"]["limit"]
+        machine.cpu_speed_mhz = node_attributes["cpu_frequency_khz"] / 1000
+        machine.maximum_memory_bytes = container["spec"]["memory"]["limit"] < node_attributes["memory_capacity"] ? container["spec"]["memory"]["limit"] : node_attributes["memory_capacity"]
+
+        # Set Machine Disks
+        machine_disk = Disk.new
+        machine_disk.name = "disk-#{machine.platform_id[0...8]}"
+        machine_disk.maximum_size_bytes = 0
+        machine_disk.type = "disk"
+        machine.disks.store("#{machine_disk.name}", machine_disk)
+
+        # Set Machine NICs
+        machine_nic = Nic.new
+        machine_nic.name = "nic-#{machine.platform_id[0...8]}"
+        machine_nic.kind = 0
+        machine.nics.store("#{machine_nic.name}", machine_nic)
+
+        # Add Machine to List
+        @datastore.machines.store("#{machine.platform_id}", machine)
+        @containers += 1
+      end
     end
     response_hash.length
   end
