@@ -1,21 +1,21 @@
 apiVersion: v1
 kind: ReplicationController
 metadata:
-  name: kubernetes-meter
+  name: openshift-meter
   namespace: 6fusion-system
 spec:
   replicas: 1
   selector:
-    6fusion-app: kubernetes-meter
+    6fusion-app: openshift-meter
   template:
     metadata:
       labels:
-        6fusion-app: kubernetes-meter
+        6fusion-app: openshift-meter
     spec:
-      serviceAccount: kubernetes-meter
+      serviceAccount: openshift-meter
       containers:
-      - image: docker.io/dvison/opershift-meter:0.2.1
-        name: kubernetes-meter
+      - image: docker.io/dvison/openshift-meter:0.3.1
+        name: openshift-meter
         volumeMounts:
         - mountPath: /var/run/secrets/uc6/
           name: uc6-secret
