@@ -168,20 +168,21 @@ class InventoryCollector
   def collect_nodes
     response = RestClient::Request.execute(:url => "#{@k8s_base_url}/nodes", :method => :get, :headers => @k8s_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
-    response_hash["items"].each do |nodes|
-      host_ip = nodes["status"]["addresses"][0]["address"]
+    response_hash["items"].each do |node|
+      host_ip = node["status"]["addresses"][0]["address"]
       @logger.debug("Collecting containers for #{host_ip} node....")
-      num_of_containers = collect_containers(host_ip)
+      num_of_containers = collect_containers(node)
       @logger.debug("Collected #{num_of_containers} containers for #{host_ip} node.")
       @nodes += 1
     end
     response_hash["items"].count
   end
 
-  def collect_containers (node_ip_address)
-    response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/spec", :method => :get, :headers => @kubelet_headers, :verify_ssl => false)
-    node_attributes = JSON.parse(response.body)
-    @datastore.infrastructure.hosts["#{node_ip_address}"] = node_attributes
+  def collect_containers (node)
+    #response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/spec", :method => :get, :headers => @kubelet_headers, :verify_ssl => false)
+    #node_attributes = JSON.parse(response.body)
+    node_attributes = node["status"]
+    @datastore.infrastructure.hosts["#{node_ip_address}"] = node
     payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":1}'
     response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json, :headers => @kubelet_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
@@ -202,9 +203,9 @@ class InventoryCollector
         machine.host = node_ip_address
 
         # Set CPU and Memory Allocations
-        machine.cpu_count = container["spec"]["cpu"]["limit"]
-        machine.cpu_speed_mhz = node_attributes["cpu_frequency_khz"] / 1000
-        machine.maximum_memory_bytes = container["spec"]["memory"]["limit"] < node_attributes["memory_capacity"] ? container["spec"]["memory"]["limit"] : node_attributes["memory_capacity"]
+        machine.cpu_count = container[["spec"]["cpu"]["limit"] < node_attributes['capacity']['cpu'] ? container["cpu"]["limit"] : node_attributes['capacity']['cpu']
+        machine.cpu_speed_mhz = '3300000'
+        machine.maximum_memory_bytes = container["spec"]["memory"]["limit"] < node_attributes["memory_capacity"] * 1024 ? container["spec"]["memory"]["limit"] : node_attributes["memory_capacity"] * 1024
 
         # Set Machine Disks
         machine_disk = Disk.new

@@ -113,13 +113,3 @@ rescue StandardError => e
   logger.debug("#{e.message}")
   logger.debug("Backtrace : #{e.backtrace}")
 end
-
-
-
-
-
-
-
-
-
-
