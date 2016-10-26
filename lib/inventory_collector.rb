@@ -182,6 +182,7 @@ class InventoryCollector
     #response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/spec", :method => :get, :headers => @kubelet_headers, :verify_ssl => false)
     #node_attributes = JSON.parse(response.body)
     node_attributes = node["status"]
+    node_ip_address = node_attributes["addresses"][0]["address"]
     payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":1}'
     response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json, :headers => @kubelet_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
