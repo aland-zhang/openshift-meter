@@ -203,8 +203,8 @@ class InventoryCollector
         machine.host = node_ip_address
 
         # Set CPU and Memory Allocations
-        machine.cpu_count = container[["spec"]["cpu"]["limit"] < node_attributes['capacity']['cpu'] ? container["cpu"]["limit"] : node_attributes['capacity']['cpu']
-        machine.cpu_speed_mhz = '3300000'
+        machine.cpu_count = container["spec"]["cpu"]["limit"] < node_attributes['capacity']['cpu'] ? container["cpu"]["limit"] : node_attributes['capacity']['cpu']
+        machine.cpu_speed_mhz = 3300000
         machine.maximum_memory_bytes = container["spec"]["memory"]["limit"] < node_attributes["memory_capacity"] * 1024 ? container["spec"]["memory"]["limit"] : node_attributes["memory_capacity"] * 1024
 
         # Set Machine Disks
