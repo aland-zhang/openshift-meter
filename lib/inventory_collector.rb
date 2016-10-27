@@ -183,7 +183,8 @@ class InventoryCollector
     #node_attributes = JSON.parse(response.body)
     node_attributes = node["status"]
     node_ip_address = node_attributes["addresses"][0]["address"]
-    payload = '{"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":1}'
+    payload = {"containerName":"/system.slice/docker-","subcontainers":true,"num_stats":1}
+    @logger.debug("#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container")
     response = RestClient::Request.execute(:url => "#{@kubelet_protocol}://#{node_ip_address}:#{@kubelet_port}/stats/container", :method => :post, :payload => payload, accept: :json, content_type: :json, :headers => @kubelet_headers, :verify_ssl => false)
     response_hash = JSON.parse(response.body)
     response_hash.each do |id,container|
@@ -203,9 +204,9 @@ class InventoryCollector
         machine.host = node_ip_address
 
         # Set CPU and Memory Allocations
-        machine.cpu_count = container["spec"]["cpu"]["limit"] < node_attributes["capacity"]["cpu"] ? container["cpu"]["limit"] * 1 : node_attributes["capacity"]["cpu"] * 1
+        machine.cpu_count = container["spec"]["cpu"]["limit"]
         machine.cpu_speed_mhz = 3300000
-        machine.maximum_memory_bytes = container["spec"]["memory"]["limit"] < (node_attributes['capacity']['memory'])[0..-3] * 1024 ? container["spec"]["memory"]["limit"] : (node_attributes['capacity']['memory'])[0..-3] * 1024
+        machine.maximum_memory_bytes = container["spec"]["memory"]["limit"]
 
         # Set Machine Disks
         machine_disk = Disk.new

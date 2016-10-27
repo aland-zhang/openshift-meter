@@ -43,7 +43,7 @@ begin
   datastore.kubernetes_port = ARGV[2] unless ARGV.empty?
   datastore.kubernetes_token = ARGV[3] unless ARGV.empty?
   datastore.kubernetes_insecure = ARGV[4] unless ARGV.empty?
-  datastore.uc6_host = ARGV[4] unless ARGV.empty?
+  datastore.uc6_host = ARGV[5] unless ARGV.empty?
   datastore.uc6_port = ARGV[6] unless ARGV.empty?
   datastore.uc6_token = ARGV[7] unless ARGV.empty?
   datastore.uc6_insecure = ARGV[8] unless ARGV.empty?
